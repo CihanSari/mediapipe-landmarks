@@ -54,116 +54,23 @@ const solutionOptions = {
   selfieMode: true,
   enableFaceGeometry: false,
   maxNumFaces: 1,
-  refineLandmarks: true,
+  refineLandmarks: false,
   minDetectionConfidence: 0.5,
   minTrackingConfidence: 0.5,
-  nIterations: 3,
-  downloadCanvas: true,
 };
+// We'll add this to our control panel later, but we'll save it here so we can
+// call tick() each time the graph runs.
+const fpsControl = new controls.FPS();
 // Optimization: Turn off animated spinner after its hiding animation is done.
 const spinner = document.querySelector(".loading");
 spinner.ontransitionend = () => {
   spinner.style.display = "none";
 };
-const faceMesh = new mpFaceMesh.FaceMesh(config);
-faceMesh.setOptions(solutionOptions);
-faceMesh.onResults(onResults);
-
-class CreateLandmarks {
-  sourceList = [];
-  outputList = [];
-  idx = 0;
-  idxOutputCounter = 0;
-  setNextImage;
-  constructor() {
-    {
-      const self = this;
-      document.getElementById("inp").onchange = function () {
-        self.setFiles(this.files);
-      };
-    }
-    const img = document.createElement("img");
-    img.onload = function () {
-      const aspect = this.height / this.width;
-      let width, height;
-      if (window.innerWidth > window.innerHeight) {
-        height = window.innerHeight;
-        width = height / aspect;
-      } else {
-        width = window.innerWidth;
-        height = width * aspect;
-      }
-      canvasElement.width = width;
-      canvasElement.height = height;
-      faceMesh.send({ image: img });
-    };
-    this.setNextImage = () => {
-      if (this.idx == this.sourceList.length) {
-        // Exhausted
-        this.downloadLandmarks();
-      } else {
-        img.src = this.sourceList[this.idx].url;
-      }
-    };
-  }
-  setFiles(files) {
-    this.sourceList = [];
-    this.outputList = [];
-    for (let idxFile = 0; idxFile < files.length; idxFile += 1) {
-      this.sourceList.push({
-        fileName: files[idxFile].name,
-        url: URL.createObjectURL(files[idxFile]),
-      });
-    }
-    this.idx = 0;
-    this.setNextImage();
-  }
-
-  setOutput(landmarks) {
-    socketInterface.sendLandmarks(landmarks);
-    if (this.idxOutputCounter < solutionOptions.nIterations) {
-      this.idxOutputCounter += 1;
-      this.setNextImage();
-    } else {
-      this.outputList.push({
-        fileName: this.sourceList[this.idx].fileName,
-        landmarks,
-        image: canvasElement.toDataURL("image/jpeg"),
-      });
-      this.idx += 1;
-      this.idxOutputCounter = 0;
-    }
-  }
-
-  downloadLandmarks() {
-    this.outputList.forEach((output, idx) => {
-      setTimeout(() => {
-        const { fileName, landmarks, image } = output;
-        const baseFileName = fileName.substring(0, fileName.lastIndexOf("."));
-        const jsonFileName = baseFileName + ".json";
-        const dataStr =
-          "data:text/json;charset=utf-8," +
-          encodeURIComponent(JSON.stringify(landmarks));
-        const dlAnchorElem = document.getElementById("downloadAnchorElem");
-        dlAnchorElem.setAttribute("href", dataStr);
-        dlAnchorElem.setAttribute("download", jsonFileName);
-        dlAnchorElem.click();
-        if (solutionOptions.downloadCanvas) {
-          const imageFileName = baseFileName + "_out.jpg";
-          dlAnchorElem.setAttribute("href", image);
-          dlAnchorElem.setAttribute("download", imageFileName);
-          dlAnchorElem.click();
-        }
-      }, idx * 250);
-      document.getElementById("inp").value = "";
-    });
-  }
-}
-
-const createLandmarks = new CreateLandmarks();
 function onResults(results) {
   // Hide the spinner.
   document.body.classList.add("loaded");
+  // Update the frame rate.
+  fpsControl.tick();
   // Draw the overlays.
   canvasCtx.save();
   canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
@@ -176,6 +83,7 @@ function onResults(results) {
   );
   if (results.multiFaceLandmarks) {
     for (const landmarks of results.multiFaceLandmarks) {
+      socketInterface.sendLandmarks(landmarks);
       drawingUtils.drawConnectors(
         canvasCtx,
         landmarks,
@@ -232,30 +140,45 @@ function onResults(results) {
           { color: "#30FF30" }
         );
       }
-      // write landmarks
-      createLandmarks.setOutput(landmarks);
-      createLandmarks.setNextImage();
     }
   }
   canvasCtx.restore();
 }
+const faceMesh = new mpFaceMesh.FaceMesh(config);
+faceMesh.setOptions(solutionOptions);
+faceMesh.onResults(onResults);
 // Present a control panel through which the user can manipulate the solution
 // options.
 new controls.ControlPanel(controlsElement, solutionOptions)
   .add([
-    new controls.StaticText({
-      title: "MediaPipe face mesh for landmarks",
-      text: "test",
-    }),
-    new controls.Toggle({
-      title: "Download face mesh images",
-      field: "downloadCanvas",
+    new controls.StaticText({ title: "MediaPipe Face Mesh" }),
+    fpsControl,
+    new controls.Toggle({ title: "Selfie Mode", field: "selfieMode" }),
+    new controls.SourcePicker({
+      onFrame: async (input, size) => {
+        const aspect = size.height / size.width;
+        let width, height;
+        if (window.innerWidth > window.innerHeight) {
+          height = window.innerHeight;
+          width = height / aspect;
+        } else {
+          width = window.innerWidth;
+          height = width * aspect;
+        }
+        canvasElement.width = width;
+        canvasElement.height = height;
+        await faceMesh.send({ image: input });
+      },
     }),
     new controls.Slider({
-      title: "Number of iterations",
-      field: "nIterations",
-      range: [1, 20],
+      title: "Max Number of Faces",
+      field: "maxNumFaces",
+      range: [1, 4],
       step: 1,
+    }),
+    new controls.Toggle({
+      title: "Refine Landmarks",
+      field: "refineLandmarks",
     }),
     new controls.Slider({
       title: "Min Detection Confidence",
@@ -277,23 +200,37 @@ new controls.ControlPanel(controlsElement, solutionOptions)
   });
 
 // Add control panel entry
-const sourceSelector = document.getElementById("sourceSelector");
-document.getElementsByClassName("control-panel")[1].appendChild(sourceSelector);
-sourceSelector.style.display = "block";
+const instanceNameWrapper = document.getElementById("instance_name_wrapper");
+document
+  .getElementsByClassName("control-panel")[1]
+  .appendChild(instanceNameWrapper);
+instanceNameWrapper.style.display = "block";
 
 class SocketInterface {
   socket = io();
   instance_name;
   constructor() {
+    // Can ask user for which instance to join
+    this.joinRandomInstance();
+  }
+
+  joinInstance(instance_name) {
+    this.instance_name = instance_name;
+    console.log("New instance name:", this.instance_name);
+    this.socket.emit("broadcaster-join", this.instance_name);
+    document.getElementById("instance_name").innerHTML = this.instance_name;
+  }
+
+  joinRandomInstance() {
     this.socket.on("instance-name", (instance_name) => {
-      this.instance_name = instance_name;
-      console.log("New instance name:", this.instance_name);
-      this.socket.emit("join", this.instance_name);
+      this.socket.off("instance-name");
+      this.joinInstance(instance_name);
     });
     this.socket.emit("get-random-instance");
   }
 
   sendLandmarks(landmarks) {
+    console.log("Sending landmarks");
     this.socket.emit("landmarks", landmarks);
   }
 }

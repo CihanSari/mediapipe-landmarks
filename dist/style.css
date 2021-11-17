@@ -10,10 +10,6 @@
   position: absolute;
 }
 
-#sourceSelector {
-  cursor: pointer;
-}
-
 a {
   color: white;
   text-decoration: none;

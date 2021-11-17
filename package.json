@@ -25,6 +25,7 @@
   "homepage": "https://github.com/CihanSari/mediapipe-landmarks#readme",
   "dependencies": {
     "express": "^4.17.1",
+    "human-readable-ids": "^1.0.4",
     "socket.io": "^4.3.2"
   },
   "devDependencies": {
