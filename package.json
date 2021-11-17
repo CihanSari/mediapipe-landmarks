@@ -1,0 +1,33 @@
+{
+  "name": "mediapipe-landmarks",
+  "version": "1.0.0",
+  "description": "MediaPipe landmark pipe",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon index.js",
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CihanSari/mediapipe-landmarks.git"
+  },
+  "keywords": [
+    "MediaPipe",
+    "Face",
+    "Landmarks"
+  ],
+  "author": "Cihan Sari",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/CihanSari/mediapipe-landmarks/issues"
+  },
+  "homepage": "https://github.com/CihanSari/mediapipe-landmarks#readme",
+  "dependencies": {
+    "express": "^4.17.1",
+    "socket.io": "^4.3.2"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.15"
+  }
+}

@@ -120,6 +120,7 @@ class CreateLandmarks {
   }
 
   setOutput(landmarks) {
+    socketInterface.sendLandmarks(landmarks);
     if (this.idxOutputCounter < solutionOptions.nIterations) {
       this.idxOutputCounter += 1;
       this.setNextImage();
@@ -279,3 +280,22 @@ new controls.ControlPanel(controlsElement, solutionOptions)
 const sourceSelector = document.getElementById("sourceSelector");
 document.getElementsByClassName("control-panel")[1].appendChild(sourceSelector);
 sourceSelector.style.display = "block";
+
+class SocketInterface {
+  socket = io();
+  instance_name;
+  constructor() {
+    this.socket.on("instance-name", (instance_name) => {
+      this.instance_name = instance_name;
+      console.log("New instance name:", this.instance_name);
+      this.socket.emit("join", this.instance_name);
+    });
+    this.socket.emit("get-random-instance");
+  }
+
+  sendLandmarks(landmarks) {
+    this.socket.emit("landmarks", landmarks);
+  }
+}
+
+const socketInterface = new SocketInterface();
