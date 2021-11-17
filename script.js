@@ -54,13 +54,12 @@ const solutionOptions = {
   selfieMode: true,
   enableFaceGeometry: false,
   maxNumFaces: 1,
-  refineLandmarks: false,
+  refineLandmarks: true,
   minDetectionConfidence: 0.5,
   minTrackingConfidence: 0.5,
+  nIterations: 3,
+  downloadCanvas: true,
 };
-// We'll add this to our control panel later, but we'll save it here so we can
-// call tick() each time the graph runs.
-const fpsControl = new controls.FPS();
 // Optimization: Turn off animated spinner after its hiding animation is done.
 const spinner = document.querySelector(".loading");
 spinner.ontransitionend = () => {
@@ -78,12 +77,12 @@ class CreateLandmarks {
   setNextImage;
   constructor() {
     {
-      let self = this;
+      const self = this;
       document.getElementById("inp").onchange = function () {
         self.setFiles(this.files);
       };
     }
-    var img = document.createElement("img");
+    const img = document.createElement("img");
     img.onload = function () {
       const aspect = this.height / this.width;
       let width, height;
@@ -121,7 +120,7 @@ class CreateLandmarks {
   }
 
   setOutput(landmarks) {
-    if (this.idxOutputCounter < 5) {
+    if (this.idxOutputCounter < solutionOptions.nIterations) {
       this.idxOutputCounter += 1;
       this.setNextImage();
     } else {
@@ -141,7 +140,6 @@ class CreateLandmarks {
         const { fileName, landmarks, image } = output;
         const baseFileName = fileName.substring(0, fileName.lastIndexOf("."));
         const jsonFileName = baseFileName + ".json";
-        const imageFileName = baseFileName + "_out.jpg";
         const dataStr =
           "data:text/json;charset=utf-8," +
           encodeURIComponent(JSON.stringify(landmarks));
@@ -149,11 +147,14 @@ class CreateLandmarks {
         dlAnchorElem.setAttribute("href", dataStr);
         dlAnchorElem.setAttribute("download", jsonFileName);
         dlAnchorElem.click();
-        dlAnchorElem.setAttribute("href", image);
-        dlAnchorElem.setAttribute("download", imageFileName);
-        dlAnchorElem.click();
-        console.log(jsonFileName, imageFileName);
+        if (solutionOptions.downloadCanvas) {
+          const imageFileName = baseFileName + "_out.jpg";
+          dlAnchorElem.setAttribute("href", image);
+          dlAnchorElem.setAttribute("download", imageFileName);
+          dlAnchorElem.click();
+        }
       }, idx * 250);
+      document.getElementById("inp").value = "";
     });
   }
 }
@@ -162,8 +163,6 @@ const createLandmarks = new CreateLandmarks();
 function onResults(results) {
   // Hide the spinner.
   document.body.classList.add("loaded");
-  // Update the frame rate.
-  fpsControl.tick();
   // Draw the overlays.
   canvasCtx.save();
   canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
@@ -243,35 +242,16 @@ function onResults(results) {
 // options.
 new controls.ControlPanel(controlsElement, solutionOptions)
   .add([
-    new controls.StaticText({ title: "MediaPipe Face Mesh" }),
-    fpsControl,
-    new controls.Toggle({ title: "Selfie Mode", field: "selfieMode" }),
-    // new controls.SourcePicker({
-    //   onFrame: async (input, size) => {
-    //     const aspect = size.height / size.width;
-    //     let width, height;
-    //     if (window.innerWidth > window.innerHeight) {
-    //         height = window.innerHeight;
-    //         width = height / aspect;
-    //     }
-    //     else {
-    //         width = window.innerWidth;
-    //         height = width * aspect;
-    //     }
-    //     canvasElement.width = width;
-    //     canvasElement.height = height;
-    //     await faceMesh.send({ image: input });
-    //   },
-    // }),
-    new controls.Slider({
-      title: "Max Number of Faces",
-      field: "maxNumFaces",
-      range: [1, 4],
-      step: 1,
-    }),
+    new controls.StaticText({ title: "MediaPipe Face Mesh for landmarks" }),
     new controls.Toggle({
-      title: "Refine Landmarks",
-      field: "refineLandmarks",
+      title: "Download face mesh images",
+      field: "downloadCanvas",
+    }),
+    new controls.Slider({
+      title: "Number of iterations",
+      field: "nIterations",
+      range: [1, 20],
+      step: 1,
     }),
     new controls.Slider({
       title: "Min Detection Confidence",
