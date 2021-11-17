@@ -66,6 +66,99 @@ const spinner = document.querySelector(".loading");
 spinner.ontransitionend = () => {
   spinner.style.display = "none";
 };
+const faceMesh = new mpFaceMesh.FaceMesh(config);
+faceMesh.setOptions(solutionOptions);
+faceMesh.onResults(onResults);
+
+class CreateLandmarks {
+  sourceList = [];
+  outputList = [];
+  idx = 0;
+  idxOutputCounter = 0;
+  setNextImage;
+  constructor() {
+    {
+      let self = this;
+      document.getElementById("inp").onchange = function () {
+        self.setFiles(this.files);
+      };
+    }
+    var img = document.createElement("img");
+    img.onload = function () {
+      const aspect = this.height / this.width;
+      let width, height;
+      if (window.innerWidth > window.innerHeight) {
+        height = window.innerHeight;
+        width = height / aspect;
+      } else {
+        width = window.innerWidth;
+        height = width * aspect;
+      }
+      canvasElement.width = width;
+      canvasElement.height = height;
+      faceMesh.send({ image: img });
+    };
+    this.setNextImage = () => {
+      if (this.idx == this.sourceList.length) {
+        // Exhausted
+        this.downloadLandmarks();
+      } else {
+        img.src = this.sourceList[this.idx].url;
+      }
+    };
+  }
+  setFiles(files) {
+    this.sourceList = [];
+    this.outputList = [];
+    for (let idxFile = 0; idxFile < files.length; idxFile += 1) {
+      this.sourceList.push({
+        fileName: files[idxFile].name,
+        url: URL.createObjectURL(files[idxFile]),
+      });
+    }
+    this.idx = 0;
+    this.setNextImage();
+  }
+
+  setOutput(landmarks) {
+    if (this.idxOutputCounter < 5) {
+      this.idxOutputCounter += 1;
+      this.setNextImage();
+    } else {
+      this.outputList.push({
+        fileName: this.sourceList[this.idx].fileName,
+        landmarks,
+        image: canvasElement.toDataURL("image/jpeg"),
+      });
+      this.idx += 1;
+      this.idxOutputCounter = 0;
+    }
+  }
+
+  downloadLandmarks() {
+    this.outputList.forEach((output, idx) => {
+      setTimeout(() => {
+        const { fileName, landmarks, image } = output;
+        const baseFileName = fileName.substring(0, fileName.lastIndexOf("."));
+        const jsonFileName = baseFileName + ".json";
+        const imageFileName = baseFileName + "_out.jpg";
+        const dataStr =
+          "data:text/json;charset=utf-8," +
+          encodeURIComponent(JSON.stringify(landmarks));
+        const dlAnchorElem = document.getElementById("downloadAnchorElem");
+        dlAnchorElem.setAttribute("href", dataStr);
+        dlAnchorElem.setAttribute("download", jsonFileName);
+        dlAnchorElem.click();
+        dlAnchorElem.setAttribute("href", image);
+        dlAnchorElem.setAttribute("download", imageFileName);
+        dlAnchorElem.click();
+        console.log(jsonFileName, imageFileName);
+      }, idx * 250);
+    });
+  }
+}
+
+const createLandmarks = new CreateLandmarks();
 function onResults(results) {
   // Hide the spinner.
   document.body.classList.add("loaded");
@@ -83,13 +176,6 @@ function onResults(results) {
   );
   if (results.multiFaceLandmarks) {
     for (const landmarks of results.multiFaceLandmarks) {
-      var dataStr =
-        "data:text/json;charset=utf-8," +
-        encodeURIComponent(JSON.stringify(landmarks));
-      var dlAnchorElem = document.getElementById("downloadAnchorElem");
-      dlAnchorElem.setAttribute("href", dataStr);
-      dlAnchorElem.setAttribute("download", `${getCurrentSource()}.json`);
-      dlAnchorElem.click();
       drawingUtils.drawConnectors(
         canvasCtx,
         landmarks,
@@ -146,13 +232,13 @@ function onResults(results) {
           { color: "#30FF30" }
         );
       }
+      // write landmarks
+      createLandmarks.setOutput(landmarks);
+      createLandmarks.setNextImage();
     }
   }
   canvasCtx.restore();
 }
-const faceMesh = new mpFaceMesh.FaceMesh(config);
-faceMesh.setOptions(solutionOptions);
-faceMesh.onResults(onResults);
 // Present a control panel through which the user can manipulate the solution
 // options.
 new controls.ControlPanel(controlsElement, solutionOptions)
@@ -160,23 +246,23 @@ new controls.ControlPanel(controlsElement, solutionOptions)
     new controls.StaticText({ title: "MediaPipe Face Mesh" }),
     fpsControl,
     new controls.Toggle({ title: "Selfie Mode", field: "selfieMode" }),
-    new controls.SourcePicker({
-      onFrame: async (input, size) => {
-        // const aspect = size.height / size.width;
-        // let width, height;
-        // if (window.innerWidth > window.innerHeight) {
-        //     height = window.innerHeight;
-        //     width = height / aspect;
-        // }
-        // else {
-        //     width = window.innerWidth;
-        //     height = width * aspect;
-        // }
-        // canvasElement.width = width;
-        // canvasElement.height = height;
-        // await faceMesh.send({ image: input });
-      },
-    }),
+    // new controls.SourcePicker({
+    //   onFrame: async (input, size) => {
+    //     const aspect = size.height / size.width;
+    //     let width, height;
+    //     if (window.innerWidth > window.innerHeight) {
+    //         height = window.innerHeight;
+    //         width = height / aspect;
+    //     }
+    //     else {
+    //         width = window.innerWidth;
+    //         height = width * aspect;
+    //     }
+    //     canvasElement.width = width;
+    //     canvasElement.height = height;
+    //     await faceMesh.send({ image: input });
+    //   },
+    // }),
     new controls.Slider({
       title: "Max Number of Faces",
       field: "maxNumFaces",
@@ -205,59 +291,3 @@ new controls.ControlPanel(controlsElement, solutionOptions)
     videoElement.classList.toggle("selfie", options.selfieMode);
     faceMesh.setOptions(options);
   });
-
-const sourceList = [
-    "rest",
-//   "004_o_m_a_a",
-//   "004_o_m_a_b",
-//   "004_o_m_d_a",
-//   "004_o_m_d_b",
-//   "004_o_m_f_a",
-//   "004_o_m_f_b",
-//   "004_o_m_h_a",
-//   "004_o_m_h_b",
-//   "004_o_m_n_a",
-//   "004_o_m_n_b",
-//   "004_o_m_s_a",
-//   "004_o_m_s_b",
-//   "066_y_m_a_a",
-//   "066_y_m_a_b",
-//   "066_y_m_d_a",
-//   "066_y_m_d_b",
-//   "066_y_m_f_a",
-//   "066_y_m_f_b",
-//   "066_y_m_h_a",
-//   "066_y_m_h_b",
-//   "066_y_m_n_a",
-//   "066_y_m_n_b",
-//   "066_y_m_s_a",
-//   "066_y_m_s_b",
-];
-let sourceIdx = 0;
-function getCurrentSource() {
-  const idx = sourceIdx % sourceList.length;
-  return sourceList[idx];
-}
-function getNextSourceImage() {
-  const source = getCurrentSource();
-  sourceIdx += 1;
-  return `/${source}.png`;
-}
-const img = document.createElement("img");
-img.onload = function () {
-  const aspect = this.height / this.width;
-  let width, height;
-  if (window.innerWidth > window.innerHeight) {
-    height = window.innerHeight;
-    width = height / aspect;
-  } else {
-    width = window.innerWidth;
-    height = width * aspect;
-  }
-  canvasElement.width = width;
-  canvasElement.height = height;
-  faceMesh.send({ image: img });
-};
-setInterval(() => {
-  img.src = getNextSourceImage();
-}, 1000);
