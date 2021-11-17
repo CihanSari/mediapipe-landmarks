@@ -242,7 +242,10 @@ function onResults(results) {
 // options.
 new controls.ControlPanel(controlsElement, solutionOptions)
   .add([
-    new controls.StaticText({ title: "MediaPipe Face Mesh for landmarks" }),
+    new controls.StaticText({
+      title: "MediaPipe face mesh for landmarks",
+      text: "test",
+    }),
     new controls.Toggle({
       title: "Download face mesh images",
       field: "downloadCanvas",
@@ -271,3 +274,8 @@ new controls.ControlPanel(controlsElement, solutionOptions)
     videoElement.classList.toggle("selfie", options.selfieMode);
     faceMesh.setOptions(options);
   });
+
+// Add control panel entry
+const sourceSelector = document.getElementById("sourceSelector");
+document.getElementsByClassName("control-panel")[1].appendChild(sourceSelector);
+sourceSelector.style.display = "block";

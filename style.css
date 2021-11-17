@@ -10,10 +10,8 @@
   position: absolute;
 }
 
-#inp {
-  position:absolute;
-  top:10px;
-  right:10px;
+#sourceSelector {
+  cursor: pointer;
 }
 
 a {

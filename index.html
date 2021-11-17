@@ -52,9 +52,22 @@
           <span class="title">MediaPipe</span>
         </div>
       </a>
-      <a id="downloadAnchorElem" style="display: none"></a>
     </div>
-    <input type="file" id="inp" accept="image/*" multiple />
+    <a id="downloadAnchorElem" style="display: none"></a>
+    <input
+      type="file"
+      id="inp"
+      style="visibility: hidden"
+      accept="image/*"
+      multiple
+    />
+    <label
+      id="sourceSelector"
+      class="control-panel-entry control-panel-text"
+      style="display: none"
+      for="inp"
+      >Click to select images
+    </label>
     <div class="control-panel"></div>
     <!-- partial -->
     <script type="module" src="./script.js"></script>
